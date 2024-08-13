@@ -27,7 +27,7 @@ class Limoka(loader.Module):
     def search_by_name(self, query: str, names: str):
         pass
 
-    def search_by_commands(self, query: str, commands: list):
+    def search_by_commands(self, query: str, commands: list): # WARNING! COMMANDS IS LIST!  
         pass
 
     @loader.command()
@@ -35,4 +35,9 @@ class Limoka(loader.Module):
         """ [query] - Search module"""
         args = utils.get_args.raw(message)
 
-        
+        modules = await self.get_all_modules()
+
+        for module in modules:
+            description = self.search_by_description(args, module["description"])
+            name = self.search_by_name(args, module["name"])
+            commands = self.search_by_commands(args, module["commands"])

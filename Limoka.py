@@ -1,6 +1,5 @@
 import aiohttp
-import tempfile
-import os
+from rapidfuzz import fuzz
 import random
 from difflib import SequenceMatcher
 import logging
@@ -10,6 +9,7 @@ from .. import utils, loader
 
 
 # meta developer: @limokanews
+# requires: rapidfuzz
 
 logger = logging.getLogger("Limoka")
 
@@ -39,16 +39,27 @@ class Limoka(loader.Module):
         "name": "Limoka",
         "wait": "Just wait"
                 "\n<i>{fact}</i>",
-        "found": "Found the module <b>{name}</b> by query: <b>{query}</b>"
-                 "\n<b>Description:</b> {description}"
-                 "\n\n<b>Developer:</b> @{username}"
-                 "\n\n<b>Commands:</b> {commands}"
-                 "\n\n<b>Download:</b> <code>{prefix}dlm {link}</code>",
-        "command_template": "<code>{prefix}{command}</code> - {description}"
+        "found": "<emoji document_id=5411608069396254249>❤️</emoji> Found the module <b>{name}</b> by query: <b>{query}</b>"
+                 "\n<emoji document_id=5411328862162276081>❤️</emoji> <b>Description:</b> {description}"
+                 "\n<emoji document_id=5413534280624134677>❤️</emoji> <b>Hash:</b> <code>{hash}</code>"
+                 "\n<emoji document_id=5418005479018221042>❤️</emoji> <b>Downloads:</b> <code>{downloads}</code>"
+                 "\n<emoji document_id=5411143117711624172>❤️</emoji> <b>Views:</b> <code>{looks}</code>"
+                 "\n\n<emoji document_id=5413350219800661019>❤️</emoji> <b>Commands:</b> \n{commands}"
+                 "\n\n<emoji document_id=5416085714536255830>❤️</emoji> <b>Developer:</b> @{username}"
+                 "\n\n<emoji document_id=5413394354884596702>❤️</emoji> <b>Download:</b> <code>{prefix}dlm {link}</code>"
+                 "\n\n<emoji document_id=5420492071809074249>❤️</emoji> <b>Found by: {reason}<b>",
+        "command_template": "{emoji} <code>{prefix}{command}</code> - {description}",
+        "emojis": {
+            1: "<emoji document_id=5359539923168796233>⬜️</emoji>",
+            2: "<emoji document_id=5359826595055935572>⬜️</emoji>",
+            3: "<emoji document_id=5359582662388358786>⬜️</emoji>",
+            4: "<emoji document_id=5368501355252031261>⬜️</emoji>",
+            5: "<emoji document_id=5368714084982203985>⬜️</emoji>",
+            6: "<emoji document_id=5224196617384503334>◽️</emoji>"
+        }
     }
 
-    # maybe in future
-    strings_ru = {"hello": "Привет мир!"}
+    # maybe in future ru
 
     async def client_ready(self, client, db):
         self._prefix = self.get_prefix()
@@ -62,17 +73,15 @@ class Limoka(loader.Module):
         
     
     def search_by_description(self, query: str, description: str, module_id: int) -> dict:
-        matcher = SequenceMatcher(None, query, description)
-        match = matcher.ratio()
-        if match > 0.5:
+        match = fuzz.ratio(query, description)
+        if match > 0.3:
             match = 0
         return {"id": module_id, "match": match, "type": "description"}
             
 
     def search_by_name(self, query: str, name: str, module_id: int):
-        matcher = SequenceMatcher(None, query, name)
-        match = matcher.ratio()
-        if match > 0.5:
+        match = fuzz.ratio(query, name)
+        if match > 0.3:
             match = 0
         return {"id": module_id, "match": match, "type": "name"}
     
@@ -86,7 +95,6 @@ class Limoka(loader.Module):
                 matcher = SequenceMatcher(None, query, command["command"])
                 matches += matcher.ratio()
             
-            logger.info(commands)
             match = matches / len(commands)
 
         return {"id": module_id, "match": match, "type": "command"}
@@ -118,38 +126,43 @@ class Limoka(loader.Module):
 
         most_matches = sorted(matches, key=lambda x: x["match"])
 
+
         module_id = most_matches[0]["id"]
         module_info = await self.api.get_module_by_id(module_id)
 
-        # Temporary crutch, because there 
-        # is no username in the api
-        dev_username = (await self.client.get_entity(int(module_info["developer"]))).username
-
-        if dev_username == None:
-            dev_username = (await self.client.get_entity(int(module_info["developer"]))).usernames[0].username
+        dev_username = module_info["developer"]
 
         name = module_info["name"]
 
         commands = []
 
+        command_count = 0
         for command in module_info["commands"]:
-            commands.append(
-                self.strings["command_template"].format(
-                    prefix=self._prefix,
-                    command=command["command"],
-                    description=command["description"]
+            command_count += 1
+            if command_count < 6:
+                commands.append(
+                    self.strings["command_template"].format(
+                        prefix=self._prefix,
+                        command=command['command'],
+                        emoji=self.strings['emojis'][command_count],
+                        description=command["description"]
+                    )
                 )
-            )
-
+                
+            
             await utils.answer(
                 message,
                 self.strings["found"].format(
                     query=args,
                     name=module_info["name"],
                     description=module_info["description"],
+                    hash=module_info["hash"],
+                    looks=len(module_info["looks"]),
+                    downloads=len(module_info["downloads"]),
                     username=dev_username,
                     commands='\n'.join(commands),
                     prefix=self._prefix,
-                    link=f"https://limoka.vsecoder.dev/api/module/{dev_username}/{name}.py"
+                    link=f"https://limoka.vsecoder.dev/api/module/{dev_username}/{name}.py",
+                    reason=most_matches[0]["type"]
                 )
             )

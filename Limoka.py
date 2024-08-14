@@ -150,6 +150,6 @@ class Limoka(loader.Module):
                     username=dev_username,
                     commands='\n'.join(commands),
                     prefix=self._prefix,
-                    link=f"https://limoka.vsecoder.dev/api/module/{dev_username}/{name}"
+                    link=f"https://limoka.vsecoder.dev/api/module/{dev_username}/{name}.py"
                 )
             )

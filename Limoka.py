@@ -1,17 +1,68 @@
+from whoosh.index import create_in
+from whoosh.fields import TEXT, ID, Schema
+from whoosh.qparser import QueryParser, OrGroup
+from whoosh.query import FuzzyTerm, Wildcard
+
 import aiohttp
-from rapidfuzz import fuzz
 import random
-from difflib import SequenceMatcher
 import logging
+import os
+import shutil
 
 from hikkatl.types import Message
 from .. import utils, loader
 
 
 # meta developer: @limokanews
-# requires: rapidfuzz
+# requires: whoosh
 
 logger = logging.getLogger("Limoka")
+
+class Search:
+    def __init__(self, query: str):
+        self.schema = Schema(title=TEXT(stored=True), path=ID(stored=True), content=TEXT(stored=True))
+        self.query = query
+
+    def search_module(self, content):
+        if not os.path.exists("limoka_search"):
+            os.makedirs("limoka_search")
+        
+        ix = create_in("limoka_search", self.schema)
+        writer = ix.writer()
+        module_count = 0
+        for module_content in content:
+            module_count += 1
+            writer.add_document(
+                title=f"{module_content['id']}", 
+                path=f"{module_count}",
+                content=module_content["content"]
+            )
+        writer.commit()
+
+        with ix.searcher() as searcher:
+
+            parser = QueryParser("content", ix.schema, group=OrGroup)
+            query = parser.parse(self.query)
+
+            # Пример добавления нечёткого поиска
+            fuzzy_query = FuzzyTerm("content", self.query, maxdist=1, prefixlength=2)
+
+            # Пример использования побуквенного поиска (Wildcard)
+            wildcard_query = Wildcard("content", f"*{self.query}*")
+
+            results = searcher.search(query)
+
+            if not results:
+                results = searcher.search(fuzzy_query)
+            if not results:
+                results = searcher.search(wildcard_query)
+
+            if results:
+                best_match = results[0]
+                return int(best_match["title"])
+            else:
+                return 0
+
 
 class LimokaAPI:
     async def get_all_modules(self) -> list:
@@ -45,9 +96,8 @@ class Limoka(loader.Module):
                  "\n<emoji document_id=5418005479018221042>❤️</emoji> <b>Downloads:</b> <code>{downloads}</code>"
                  "\n<emoji document_id=5411143117711624172>❤️</emoji> <b>Views:</b> <code>{looks}</code>"
                  "\n\n<emoji document_id=5413350219800661019>❤️</emoji> <b>Commands:</b> \n{commands}"
-                 "\n\n<emoji document_id=5416085714536255830>❤️</emoji> <b>Developer:</b> @{username}"
-                 "\n\n<emoji document_id=5413394354884596702>❤️</emoji> <b>Download:</b> <code>{prefix}dlm {link}</code>"
-                 "\n\n<emoji document_id=5420492071809074249>❤️</emoji> <b>Found by: {reason}<b>",
+                 "\n<emoji document_id=5416085714536255830>❤️</emoji> <b>Developer:</b> @{username}"
+                 "\n\n<emoji document_id=5413394354884596702>❤️</emoji> <b>Download:</b> <code>{prefix}dlm {link}</code>",
         "command_template": "{emoji} <code>{prefix}{command}</code> - {description}",
         "emojis": {
             1: "<emoji document_id=5359539923168796233>⬜️</emoji>",
@@ -56,7 +106,8 @@ class Limoka(loader.Module):
             4: "<emoji document_id=5368501355252031261>⬜️</emoji>",
             5: "<emoji document_id=5368714084982203985>⬜️</emoji>",
             6: "<emoji document_id=5224196617384503334>◽️</emoji>"
-        }
+        },
+        "404": "<emoji document_id=5210952531676504517>❌</emoji> Not found"
     }
 
     # maybe in future ru
@@ -70,37 +121,9 @@ class Limoka(loader.Module):
             "The limoka catalog is carefully moderated!", 
             "Limoka performance allows you to search for modules quickly!"
         ]
-        
-    
-    def search_by_description(self, query: str, description: str, module_id: int) -> dict:
-        match = fuzz.ratio(query, description)
-        if match > 0.3:
-            match = 0
-        return {"id": module_id, "match": match, "type": "description"}
-            
-
-    def search_by_name(self, query: str, name: str, module_id: int):
-        match = fuzz.ratio(query, name)
-        if match > 0.3:
-            match = 0
-        return {"id": module_id, "match": match, "type": "name"}
-    
-    def search_by_commands(self, query: str, commands: list, module_id: int): # Temporiary disabled
-        if len(commands) == [0,1]:
-            matcher = SequenceMatcher(None, query, commands[0]["command"])
-            match = matcher.ratio()
-        else:
-            matches = 0
-            for command in commands:
-                matcher = SequenceMatcher(None, query, command["command"])
-                matches += matcher.ratio()
-            
-            match = matches / len(commands)
-
-        return {"id": module_id, "match": match, "type": "command"}
 
     @loader.command()
-    async def lsearch(self, message: Message):
+    async def limoka(self, message: Message):
         """ [query] - Search module"""
         args = utils.get_args_raw(message)
 
@@ -113,56 +136,85 @@ class Limoka(loader.Module):
 
         modules = await self.api.get_all_modules()
 
-        matches = []
+        contents = []
 
         for module in modules:
-            description_match = self.search_by_description(args, module["description"], module["id"])
-            name_match = self.search_by_name(args, module["name"], module["id"])
-            #commands_match = self.search_by_commands(args, module["commands"], module["id"])
+            contents.append(
+                {
+                    "id": module["id"], 
+                    "content": module["name"],
+                }
+            )
 
-            matches.append(description_match)
-            matches.append(name_match)
-            #matches.append(commands_match)
+        for module in modules:
+            contents.append(
+                {
+                    "id": module["id"], 
+                    "content": module["description"],
+                }
+            )
 
-        most_matches = sorted(matches, key=lambda x: x["match"])
+        for module in modules:
+            for command in module["commands"]:
+                contents.append(
+                    {
+                        "id": module["id"],
+                        "content": command["command"]
+                    }
+                )
+                contents.append(
+                    {
+                        "id": module["id"],
+                        "content": command["description"]
+                    }
+                )
 
+        searcher = Search(args)
+        result = searcher.search_module(contents)
 
-        module_id = most_matches[0]["id"]
-        module_info = await self.api.get_module_by_id(module_id)
+        module_id = result
 
-        dev_username = module_info["developer"]
+        if module_id == 0:
+            await utils.answer(message, self.strings["404"])
 
-        name = module_info["name"]
+        else:
 
-        commands = []
+            module_info = await self.api.get_module_by_id(module_id)
 
-        command_count = 0
-        for command in module_info["commands"]:
-            command_count += 1
-            if command_count < 6:
-                commands.append(
-                    self.strings["command_template"].format(
+            dev_username = module_info["developer"]
+
+            name = module_info["name"]
+
+            commands = []
+
+            command_count = 0
+            for command in module_info["commands"]:
+                command_count += 1
+                if command_count < 6:
+                    commands.append(
+                        self.strings["command_template"].format(
+                            prefix=self._prefix,
+                            command=command['command'],
+                            emoji=self.strings['emojis'][command_count],
+                            description=command["description"]
+                        )
+                    )
+                else:
+                    commands.append("...")
+                    
+                
+                await utils.answer(
+                    message,
+                    self.strings["found"].format(
+                        query=args,
+                        name=module_info["name"],
+                        description=module_info["description"],
+                        hash=module_info["hash"],
+                        looks=len(module_info["looks"]),
+                        downloads=len(module_info["downloads"]),
+                        username=dev_username,
+                        commands=''.join(commands),
                         prefix=self._prefix,
-                        command=command['command'],
-                        emoji=self.strings['emojis'][command_count],
-                        description=command["description"]
+                        link=f"https://limoka.vsecoder.dev/api/module/{dev_username}/{name}.py",
                     )
                 )
-                
-            
-            await utils.answer(
-                message,
-                self.strings["found"].format(
-                    query=args,
-                    name=module_info["name"],
-                    description=module_info["description"],
-                    hash=module_info["hash"],
-                    looks=len(module_info["looks"]),
-                    downloads=len(module_info["downloads"]),
-                    username=dev_username,
-                    commands='\n'.join(commands),
-                    prefix=self._prefix,
-                    link=f"https://limoka.vsecoder.dev/api/module/{dev_username}/{name}.py",
-                    reason=most_matches[0]["type"]
-                )
-            )

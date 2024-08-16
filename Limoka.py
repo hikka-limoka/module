@@ -137,7 +137,7 @@ class Limoka(loader.Module):
         )
 
         if not args:
-            await utils.answer(message, self.strings["noargs"])
+            return await utils.answer(message, self.strings["noargs"])
 
         modules = await self.api.get_all_modules()
 

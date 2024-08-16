@@ -44,10 +44,8 @@ class Search:
             parser = QueryParser("content", ix.schema, group=OrGroup)
             query = parser.parse(self.query)
 
-            # Пример добавления нечёткого поиска
             fuzzy_query = FuzzyTerm("content", self.query, maxdist=1, prefixlength=2)
 
-            # Пример использования побуквенного поиска (Wildcard)
             wildcard_query = Wildcard("content", f"*{self.query}*")
 
             results = searcher.search(query)
@@ -90,24 +88,28 @@ class Limoka(loader.Module):
         "name": "Limoka",
         "wait": "Just wait"
                 "\n<i>{fact}</i>",
-        "found": "<emoji document_id=5411608069396254249>❤️</emoji> Found the module <b>{name}</b> by query: <b>{query}</b>"
-                 "\n<emoji document_id=5411328862162276081>❤️</emoji> <b>Description:</b> {description}"
-                 "\n<emoji document_id=5413534280624134677>❤️</emoji> <b>Hash:</b> <code>{hash}</code>"
-                 "\n<emoji document_id=5418005479018221042>❤️</emoji> <b>Downloads:</b> <code>{downloads}</code>"
-                 "\n<emoji document_id=5411143117711624172>❤️</emoji> <b>Views:</b> <code>{looks}</code>"
-                 "\n\n<emoji document_id=5413350219800661019>❤️</emoji> <b>Commands:</b> \n{commands}"
-                 "\n<emoji document_id=5416085714536255830>❤️</emoji> <b>Developer:</b> @{username}"
-                 "\n\n<emoji document_id=5413394354884596702>❤️</emoji> <b>Download:</b> <code>{prefix}dlm {link}</code>",
+        "found": "<emoji document_id=5330317558392314276>🧩</emoji> Found the module <b>{name}</b> by query: <b>{query}</b>"
+                 "\n<emoji document_id=5330226152898318163>🛜</emoji> <b>Description:</b> {description}"
+                 "\n<emoji document_id=5330260873413939327>#️⃣</emoji> <b>Hash:</b> <code>{hash}</code>"
+                 "\n<emoji document_id=5330250874730075345>🌐</emoji> <b>Downloads:</b> <code>{downloads}</code>"
+                 "\n<emoji document_id=5330081756097829304>👁</emoji> <b>Views:</b> <code>{looks}</code>"
+                 "\n\n<emoji document_id=5330310467401305111>⚙️</emoji> <b>Commands:</b> \n{commands}"
+                 "\n<emoji document_id=5332310719570398850>🧑‍💻</emoji> <b>Developer:</b> @{username}"
+                 "\n\n<emoji document_id=5330250874730075345>🌐</emoji> <b>Download:</b> <code>{prefix}dlm {link}</code>",
         "command_template": "{emoji} <code>{prefix}{command}</code> - {description}",
         "emojis": {
-            1: "<emoji document_id=5359539923168796233>⬜️</emoji>",
-            2: "<emoji document_id=5359826595055935572>⬜️</emoji>",
-            3: "<emoji document_id=5359582662388358786>⬜️</emoji>",
-            4: "<emoji document_id=5368501355252031261>⬜️</emoji>",
-            5: "<emoji document_id=5368714084982203985>⬜️</emoji>",
-            6: "<emoji document_id=5224196617384503334>◽️</emoji>"
+            1: "<emoji document_id=5449498872176983423>1️⃣</emoji>",
+            2: "<emoji document_id=5447575603001705541>2️⃣</emoji>",
+            3: "<emoji document_id=5447344971847844130>3️⃣</emoji>",
+            4: "<emoji document_id=5449783211896879221>4️⃣</emoji>",
+            5: "<emoji document_id=5449556257235024153>5️⃣</emoji>",
+            6: "<emoji document_id=5449643483725837995>6️⃣</emoji>",
+            7: "<emoji document_id=5447255791146910115>7️⃣</emoji>",
+            8: "<emoji document_id=5449394534536462346>8️⃣</emoji>",
+            9: "<emoji document_id=5447140424030371281>9️⃣</emoji>",
         },
-        "404": "<emoji document_id=5210952531676504517>❌</emoji> Not found"
+        "404": "<emoji document_id=5210952531676504517>❌</emoji> <b>Not found</b>",
+        "noargs": "<emoji document_id=5210952531676504517>❌</emoji> <b>No args</b>"
     }
 
     # maybe in future ru
@@ -133,6 +135,9 @@ class Limoka(loader.Module):
                 fact=random.choice(self.facts)
             )      
         )
+
+        if not args:
+            await utils.answer(message, self.strings["noargs"])
 
         modules = await self.api.get_all_modules()
 
@@ -190,7 +195,7 @@ class Limoka(loader.Module):
             command_count = 0
             for command in module_info["commands"]:
                 command_count += 1
-                if command_count < 6:
+                if command_count < 9:
                     commands.append(
                         self.strings["command_template"].format(
                             prefix=self._prefix,

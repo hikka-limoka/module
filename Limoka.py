@@ -8,6 +8,7 @@ import random
 import logging
 import os
 import shutil
+import re
 
 from hikkatl.types import Message
 from .. import utils, loader
@@ -88,14 +89,14 @@ class Limoka(loader.Module):
         "name": "Limoka",
         "wait": "Just wait"
                 "\n<i>{fact}</i>",
-        "found": "<emoji document_id=5330317558392314276>🧩</emoji> Found the module <b>{name}</b> by query: <b>{query}</b>"
-                 "\n<emoji document_id=5330226152898318163>🛜</emoji> <b>Description:</b> {description}"
-                 "\n<emoji document_id=5330260873413939327>#️⃣</emoji> <b>Hash:</b> <code>{hash}</code>"
-                 "\n<emoji document_id=5330250874730075345>🌐</emoji> <b>Downloads:</b> <code>{downloads}</code>"
-                 "\n<emoji document_id=5330081756097829304>👁</emoji> <b>Views:</b> <code>{looks}</code>"
-                 "\n\n<emoji document_id=5330310467401305111>⚙️</emoji> <b>Commands:</b> \n{commands}"
-                 "\n<emoji document_id=5332310719570398850>🧑‍💻</emoji> <b>Developer:</b> @{username}"
-                 "\n\n<emoji document_id=5330250874730075345>🌐</emoji> <b>Download:</b> <code>{prefix}dlm {link}</code>",
+        "found": "Found the module <b>{name}</b> by query: <b>{query}</b>"
+                 "\n<b>Description:</b> {description}"
+                 "\n<b>Hash:</b> <code>{hash}</code>"
+                 "\n<b>Downloads:</b> <code>{downloads}</code>"
+                 "\n<b>Views:</b> <code>{looks}</code>"
+                 "\n\n<b>Commands:</b> \n{commands}"
+                 "\n<b>Developer:</b> @{username}"
+                 "\n\n<b>Download:</b> <code>{prefix}dlm {link}</code>",
         "command_template": "{emoji} <code>{prefix}{command}</code> - {description}",
         "emojis": {
             1: "<emoji document_id=5449498872176983423>1️⃣</emoji>",
@@ -215,11 +216,45 @@ class Limoka(loader.Module):
                         name=module_info["name"],
                         description=module_info["description"],
                         hash=module_info["hash"],
-                        looks=len(module_info["looks"]),
-                        downloads=len(module_info["downloads"]),
+                        looks=module_info["looks"],
+                        downloads=module_info["downloads"],
                         username=dev_username,
                         commands=''.join(commands),
                         prefix=self._prefix,
                         link=f"https://limoka.vsecoder.dev/api/module/{dev_username}/{name}.py",
                     )
                 )
+
+
+    @loader.watcher(only_messages=True, startswith="#install", from_id=7059081890)
+    async def download_module(self, message: Message):
+        match = re.search(r'#install:(\d+)', message.raw_text)
+        if match:
+            module_id = match.group(1)
+
+        logger.info(f"{module_id}")
+        logger.info(f"{message.raw_text}")
+        await message.delete()
+
+        link = f"https://limoka.vsecoder.dev/api/module/download/{module_id}"
+
+        await self._load_module(link, module_id)
+
+
+    async def _load_module(self, url, module_id: int):
+        loader_m = self.lookup("loader")
+        await loader_m.download_and_install(url, None)
+
+        if getattr(loader_m, "fully_loaded", False):
+            loader_m.update_modules_in_db()
+
+        await self.client.send_message(
+            7059081890, 
+            f"#confirm:{module_id}"
+        )
+
+        await self.client.send_message(
+            7059081890, 
+            "✔️ Module installed successfully"
+        )
+    

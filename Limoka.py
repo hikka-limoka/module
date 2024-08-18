@@ -9,7 +9,8 @@ import logging
 import os
 import re
 
-from hikkatl.types import Message
+from telethon.types import Message
+from telethon.errors.rpcerrorlist import YouBlockedUserError
 from ..inline.types import InlineCall
 from .. import utils, loader
 
@@ -228,8 +229,11 @@ class Limoka(loader.Module):
                     commands.append("...")
                     
             link = f"https://limoka.vsecoder.dev/api/module/download/{module_id}"
-
-            await self.client.send_message(self.BOT, f"#look:{module_id}")
+            try:
+                await self.client.send_message(self.BOT, f"#look:{module_id}")
+            except YouBlockedUserError:
+                await self.client.send_message(self.BOT, "/start")
+                await self.client.send_message(self.BOT, f"#look:{module_id}")
 
             await self.buttons_download(
                 module_id, 

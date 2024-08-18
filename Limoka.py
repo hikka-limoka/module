@@ -115,7 +115,32 @@ class Limoka(loader.Module):
         "?": "Request too short / not found"
     }
 
-    # maybe in future ru
+    strings_ru = {
+        "wait": "Подождите"
+                "\n<i>{fact}</i>",
+        "found": "Найден модуль <b>{name}</b> по запросу: <b>{query}</b>"
+                 "\n<b>Описание:</b> {description}"
+                 "\n<b>Хэш:</b> <code>{hash}</code>"
+                 "\n<b>Загрузок:</b> <code>{downloads}</code>"
+                 "\n<b>Просмотров:</b> <code>{looks}</code>"
+                 "\n\n<b>Команды:</b> \n{commands}"
+                 "\n<b>Разработчик:</b> @{username}",
+        "command_template": "{emoji} <code>{prefix}{command}</code> - {description}",
+        "emojis": {
+            1: "<emoji document_id=5449498872176983423>1️⃣</emoji>",
+            2: "<emoji document_id=5447575603001705541>2️⃣</emoji>",
+            3: "<emoji document_id=5447344971847844130>3️⃣</emoji>",
+            4: "<emoji document_id=5449783211896879221>4️⃣</emoji>",
+            5: "<emoji document_id=5449556257235024153>5️⃣</emoji>",
+            6: "<emoji document_id=5449643483725837995>6️⃣</emoji>",
+            7: "<emoji document_id=5447255791146910115>7️⃣</emoji>",
+            8: "<emoji document_id=5449394534536462346>8️⃣</emoji>",
+            9: "<emoji document_id=5447140424030371281>9️⃣</emoji>",
+        },
+        "404": "<emoji document_id=5210952531676504517>❌</emoji> <b>Не найдено</b>",
+        "noargs": "<emoji document_id=5210952531676504517>❌</emoji> <b>Нет аргументов</b>",
+        "?": "Запрос слишком короткий / не найден"
+    }
 
     async def client_ready(self, client, db):
         self._prefix = self.get_prefix()

@@ -7,10 +7,10 @@ import aiohttp
 import random
 import logging
 import os
-import shutil
 import re
 
 from hikkatl.types import Message
+from ..inline.types import InlineCall
 from .. import utils, loader
 
 
@@ -18,7 +18,7 @@ from .. import utils, loader
 # requires: whoosh
 
 logger = logging.getLogger("Limoka")
-
+    
 class Search:
     def __init__(self, query: str):
         self.schema = Schema(title=TEXT(stored=True), path=ID(stored=True), content=TEXT(stored=True))
@@ -95,8 +95,7 @@ class Limoka(loader.Module):
                  "\n<b>Downloads:</b> <code>{downloads}</code>"
                  "\n<b>Views:</b> <code>{looks}</code>"
                  "\n\n<b>Commands:</b> \n{commands}"
-                 "\n<b>Developer:</b> @{username}"
-                 "\n\n<b>Download:</b> <code>{prefix}dlm {link}</code>",
+                 "\n<b>Developer:</b> @{username}",
         "command_template": "{emoji} <code>{prefix}{command}</code> - {description}",
         "emojis": {
             1: "<emoji document_id=5449498872176983423>1️⃣</emoji>",
@@ -110,7 +109,8 @@ class Limoka(loader.Module):
             9: "<emoji document_id=5447140424030371281>9️⃣</emoji>",
         },
         "404": "<emoji document_id=5210952531676504517>❌</emoji> <b>Not found</b>",
-        "noargs": "<emoji document_id=5210952531676504517>❌</emoji> <b>No args</b>"
+        "noargs": "<emoji document_id=5210952531676504517>❌</emoji> <b>No args</b>",
+        "?": "Request too short / not found"
     }
 
     # maybe in future ru
@@ -124,6 +124,22 @@ class Limoka(loader.Module):
             "The limoka catalog is carefully moderated!", 
             "Limoka performance allows you to search for modules quickly!"
         ]
+        self.BOT = 7059081890
+
+    async def buttons_download(self, module_id, url, text, message: Message):
+        markup = [
+            {
+                "text": "⬇️ Download",
+                "callback": self._inline_download,
+                "args": [url, module_id]
+            }
+        ]
+
+        return await self.inline.form(
+            text,
+            message,
+            reply_markup=markup,
+        )
 
     @loader.command()
     async def limoka(self, message: Message):
@@ -176,7 +192,10 @@ class Limoka(loader.Module):
                 )
 
         searcher = Search(args)
-        result = searcher.search_module(contents)
+        try:
+            result = searcher.search_module(contents)
+        except IndexError:
+            return await utils.answer(message, self.strings["?"]) 
 
         module_id = result
 
@@ -208,10 +227,14 @@ class Limoka(loader.Module):
                 else:
                     commands.append("...")
                     
-                
-                await utils.answer(
-                    message,
-                    self.strings["found"].format(
+                link = f"https://limoka.vsecoder.dev/api/module/download/{module_id}"
+
+                await self.client.send_message(self.BOT, f"#look:{module_id}")
+
+                await self.buttons_download(
+                    module_id, 
+                    link, 
+                    text=self.strings["found"].format(
                         query=args,
                         name=module_info["name"],
                         description=module_info["description"],
@@ -221,8 +244,8 @@ class Limoka(loader.Module):
                         username=dev_username,
                         commands=''.join(commands),
                         prefix=self._prefix,
-                        link=f"https://limoka.vsecoder.dev/api/module/{dev_username}/{name}.py",
-                    )
+                    ),
+                    message=message
                 )
 
 
@@ -240,14 +263,6 @@ class Limoka(loader.Module):
 
         await self._load_module(link, module_id)
 
-
-    async def _load_module(self, url, module_id: int):
-        loader_m = self.lookup("loader")
-        await loader_m.download_and_install(url, None)
-
-        if getattr(loader_m, "fully_loaded", False):
-            loader_m.update_modules_in_db()
-
         await self.client.send_message(
             7059081890, 
             f"#confirm:{module_id}"
@@ -257,4 +272,35 @@ class Limoka(loader.Module):
             7059081890, 
             "✔️ Module installed successfully"
         )
+
+    @loader.watcher(only_messages=True, from_id=7059081890)
+    async def remove_service_messages(self, message: Message):
+        if "#skipIfModuleInstalled" in message.text:
+            await message.remove()
+
+
+    async def _load_module(self, url):
+        loader_m = self.lookup("loader")
+        await loader_m.download_and_install(url, None)
+
+        if getattr(loader_m, "fully_loaded", False):
+            loader_m.update_modules_in_db()
+
+    async def _inline_download(self, call: InlineCall, url, module_id: int):
+        await self._load_module(url)
+        await self.client.send_message(self.BOT, f"#download:{module_id}")
+
+        api = LimokaAPI()
+        info = await api.get_module_by_id(module_id)
+        markup = [
+            {
+                "text": "❌ Close",
+                "action": "close"
+            }
+        ]
+        await call.edit(
+            f"✔️ Module {info['name']} installed successfully",
+            reply_markup=markup
+        )
+
     

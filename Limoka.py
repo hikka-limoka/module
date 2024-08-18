@@ -8,6 +8,7 @@ import random
 import logging
 import os
 import re
+import html
 
 from telethon.types import Message
 from telethon.errors.rpcerrorlist import YouBlockedUserError
@@ -178,19 +179,20 @@ class Limoka(loader.Module):
             )
 
         for module in modules:
-            for command in module["commands"]:
-                contents.append(
-                    {
-                        "id": module["id"],
-                        "content": command["command"]
-                    }
-                )
-                contents.append(
-                    {
-                        "id": module["id"],
-                        "content": command["description"]
-                    }
-                )
+            for func in module["commands"]:
+                for command, description in func.items():
+                    contents.append(
+                        {
+                            "id": module["id"],
+                            "content": command
+                        }
+                    )
+                    contents.append(
+                        {
+                            "id": module["id"],
+                            "content": description
+                        }
+                    )
 
         searcher = Search(args)
         try:
@@ -214,19 +216,20 @@ class Limoka(loader.Module):
             commands = []
 
             command_count = 0
-            for command in module_info["commands"]:
-                command_count += 1
-                if command_count < 9:
-                    commands.append(
-                        self.strings["command_template"].format(
-                            prefix=self._prefix,
-                            command=command['command'],
-                            emoji=self.strings['emojis'][command_count],
-                            description=command["description"]
+            for func in module_info["commands"]:
+                for command, description in func.items():
+                    command_count += 1
+                    if command_count < 9:
+                        commands.append(
+                            self.strings["command_template"].format(
+                                prefix=self._prefix,
+                                command=html.escape(command),
+                                emoji=self.strings['emojis'][command_count],
+                                description=html.escape(description)
+                            )
                         )
-                    )
-                else:
-                    commands.append("...")
+                    else:
+                        commands.append("...")
                     
             link = f"https://limoka.vsecoder.dev/api/module/download/{module_id}"
             try:

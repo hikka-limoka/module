@@ -255,28 +255,21 @@ class Limoka(loader.Module):
         if match:
             module_id = match.group(1)
 
-        logger.info(f"{module_id}")
-        logger.info(f"{message.raw_text}")
         await message.delete()
 
         link = f"https://limoka.vsecoder.dev/api/module/download/{module_id}"
 
-        await self._load_module(link, module_id)
+        await self._load_module(link)
 
         await self.client.send_message(
-            7059081890, 
+            self.BOT, 
             f"#confirm:{module_id}"
-        )
-
-        await self.client.send_message(
-            7059081890, 
-            "✔️ Module installed successfully"
         )
 
     @loader.watcher(only_messages=True, from_id=7059081890)
     async def remove_service_messages(self, message: Message):
-        if "#skipIfModuleInstalled" in message.text:
-            await message.remove()
+        if "#skipIfModuleInstalled" in message.raw_text:
+            await message.delete()
 
 
     async def _load_module(self, url):

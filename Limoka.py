@@ -227,26 +227,26 @@ class Limoka(loader.Module):
                 else:
                     commands.append("...")
                     
-                link = f"https://limoka.vsecoder.dev/api/module/download/{module_id}"
+            link = f"https://limoka.vsecoder.dev/api/module/download/{module_id}"
 
-                await self.client.send_message(self.BOT, f"#look:{module_id}")
+            await self.client.send_message(self.BOT, f"#look:{module_id}")
 
-                await self.buttons_download(
-                    module_id, 
-                    link, 
-                    text=self.strings["found"].format(
-                        query=args,
-                        name=module_info["name"],
-                        description=module_info["description"],
-                        hash=module_info["hash"],
-                        looks=module_info["looks"],
-                        downloads=module_info["downloads"],
-                        username=dev_username,
-                        commands=''.join(commands),
-                        prefix=self._prefix,
-                    ),
-                    message=message
-                )
+            await self.buttons_download(
+                module_id, 
+                link, 
+                text=self.strings["found"].format(
+                    query=args,
+                    name=module_info["name"],
+                    description=module_info["description"],
+                    hash=module_info["hash"],
+                    looks=module_info["looks"],
+                    downloads=module_info["downloads"],
+                    username=dev_username,
+                    commands=''.join(commands),
+                    prefix=self._prefix,
+                ),
+                message=message
+            )
 
 
     @loader.watcher(only_messages=True, startswith="#install", from_id=7059081890)

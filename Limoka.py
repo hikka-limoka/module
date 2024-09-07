@@ -22,6 +22,7 @@ class Search:
     def __init__(self, query: str):
         self.schema = Schema(title=TEXT(stored=True), path=ID(stored=True), content=TEXT(stored=True))
         self.query = query
+        self.base_url = "http://123.123.123.123"
 
     def search_module(self, content):
         if not os.path.exists("limoka_search"):
@@ -65,19 +66,19 @@ class Search:
 class LimokaAPI:
     async def get_all_modules(self) -> list:
         async with aiohttp.ClientSession() as session:
-            async with session.get('https://limoka.vsecoder.dev/api/module/all') as response:
+            async with session.get(f'{self.base_url}api/module/all') as response:
                 # A necessary crutch, because the server 
                 # returns a list, but aiohttp gives only json
                 return [await response.json()][0] 
             
     async def get_module_by_id(self, id) -> dict:
         async with aiohttp.ClientSession() as session:
-            async with session.get(f'https://limoka.vsecoder.dev/api/module/{id}') as response:
+            async with session.get(f'{self.base_url}api/module/{id}') as response:
                 return await response.json()
             
     async def get_module_raw(self, developer, module_name) -> str:
         async with aiohttp.ClientSession() as session:
-            async with session.get(f'https://limoka.vsecoder.dev/api/module/{developer}/{module_name}') as response:
+            async with session.get(f'{self.base_url}api/module/{developer}/{module_name}') as response:
                 return {"content": response.content(), "name": f"{module_name}.py"}
                 
 
@@ -220,6 +221,6 @@ class Limoka(loader.Module):
                         username=dev_username,
                         commands=''.join(commands),
                         prefix=self._prefix,
-                        link=f"https://limoka.vsecoder.dev/api/module/{dev_username}/{name}.py",
+                        link=f"{self.base_url}api/module/{dev_username}/{name}.py",
                     )
                 )

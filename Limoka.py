@@ -244,7 +244,7 @@ class Limoka(loader.Module):
                                 prefix=self._prefix,
                                 command=html.escape(command),
                                 emoji=self.strings['emojis'][command_count],
-                                description=html.escape(description)
+                                description=html.escape(description) if description else "No description"
                             )
                         )
                     else:

@@ -25,7 +25,6 @@ class Search:
     def __init__(self, query: str):
         self.schema = Schema(title=TEXT(stored=True), path=ID(stored=True), content=TEXT(stored=True))
         self.query = query
-        self.base_url = "http://123.123.123.123"
 
     def search_module(self, content):
         if not os.path.exists("limoka_search"):
@@ -69,19 +68,19 @@ class Search:
 class LimokaAPI:
     async def get_all_modules(self) -> list:
         async with aiohttp.ClientSession() as session:
-            async with session.get(f'{self.base_url}api/module/all') as response:
+            async with session.get('https://limoka.vsecoder.dev/api/module/all') as response:
                 # A necessary crutch, because the server 
                 # returns a list, but aiohttp gives only json
                 return [await response.json()][0] 
             
     async def get_module_by_id(self, id) -> dict:
         async with aiohttp.ClientSession() as session:
-            async with session.get(f'{self.base_url}api/module/{id}') as response:
+            async with session.get(f'https://limoka.vsecoder.dev/api/module/{id}') as response:
                 return await response.json()
             
     async def get_module_raw(self, developer, module_name) -> str:
         async with aiohttp.ClientSession() as session:
-            async with session.get(f'{self.base_url}api/module/{developer}/{module_name}') as response:
+            async with session.get(f'https://limoka.vsecoder.dev/api/module/{developer}/{module_name}') as response:
                 return {"content": response.content(), "name": f"{module_name}.py"}
                 
 
@@ -92,14 +91,11 @@ class Limoka(loader.Module):
         "name": "Limoka",
         "wait": "Just wait"
                 "\n<i>{fact}</i>",
-        "found": "Found the module <b>{name}</b> by query: <b>{query}</b>"
-                 "\n<b>Description:</b> {description}"
-                 "\n<b>Hash:</b> <code>{hash}</code>"
-                 "\n<b>Downloads:</b> <code>{downloads}</code>"
-                 "\n<b>Views:</b> <code>{looks}</code>"
-                 "\n\n<b>Commands:</b> \n{commands}"
-                 "\n<b>Developer:</b> @{username}",
-        "command_template": "{emoji} <code>{prefix}{command}</code> - {description}",
+        "found": "🔎 Found the module <b>{name}</b> by query: <b>{query}</b>"
+                 "\n<b>ℹ️ Description:</b> {description}"
+                 "\n<b>🧩 Developer:</b> @{username}"
+                 "\n\n{commands}",
+        "command_template": "{emoji} <code>{prefix}{command}</code> - {description}\n",
         "emojis": {
             1: "<emoji document_id=5449498872176983423>1️⃣</emoji>",
             2: "<emoji document_id=5447575603001705541>2️⃣</emoji>",
@@ -119,14 +115,11 @@ class Limoka(loader.Module):
     strings_ru = {
         "wait": "Подождите"
                 "\n<i>{fact}</i>",
-        "found": "Найден модуль <b>{name}</b> по запросу: <b>{query}</b>"
-                 "\n<b>Описание:</b> {description}"
-                 "\n<b>Хэш:</b> <code>{hash}</code>"
-                 "\n<b>Загрузок:</b> <code>{downloads}</code>"
-                 "\n<b>Просмотров:</b> <code>{looks}</code>"
-                 "\n\n<b>Команды:</b> \n{commands}"
-                 "\n<b>Разработчик:</b> @{username}",
-        "command_template": "{emoji} <code>{prefix}{command}</code> - {description}",
+        "found": "🔎 Найден модуль <b>{name}</b> по запросу: <b>{query}</b>"
+                 "\n<b>ℹ️ Описание:</b> {description}"
+                 "\n<b>🧩 Разработчик:</b> @{username}"
+                 "\n\n{commands}",
+        "command_template": "{emoji} <code>{prefix}{command}</code> - {description}\n",
         "emojis": {
             1: "<emoji document_id=5449498872176983423>1️⃣</emoji>",
             2: "<emoji document_id=5447575603001705541>2️⃣</emoji>",
@@ -257,19 +250,66 @@ class Limoka(loader.Module):
                     else:
                         commands.append("...")
                     
-                
-                await utils.answer(
-                    message,
-                    self.strings["found"].format(
-                        query=args,
-                        name=module_info["name"],
-                        description=module_info["description"],
-                        hash=module_info["hash"],
-                        looks=len(module_info["looks"]),
-                        downloads=len(module_info["downloads"]),
-                        username=dev_username,
-                        commands=''.join(commands),
-                        prefix=self._prefix,
-                        link=f"https://limoka.vsecoder.dev/api/module/{dev_username}/{name}.py",
-                    )
-                )
+            link = f"https://limoka.vsecoder.dev/api/module/download/{module_id}"
+
+            await self.buttons_download(
+                module_id, 
+                link, 
+                text=self.strings["found"].format(
+                    query=args,
+                    name=module_info["name"],
+                    description=module_info["description"],
+                    username=dev_username,
+                    commands=''.join(commands),
+                    prefix=self._prefix,
+                ),
+                message=message
+            )
+
+
+    @loader.watcher(only_messages=True, startswith="#install", from_id=7059081890)
+    async def download_module(self, message: Message):
+        match = re.search(r'#install:(\d+)', message.raw_text)
+        if match:
+            module_id = match.group(1)
+
+        await message.delete()
+
+        link = f"https://limoka.vsecoder.dev/api/module/download/{module_id}"
+
+        await self._load_module(link)
+
+        await self.client.send_message(
+            self.BOT, 
+            f"#confirm:{module_id}"
+        )
+
+    @loader.watcher(only_messages=True, from_id=7059081890)
+    async def remove_service_messages(self, message: Message):
+        if "#skipIfModuleInstalled" in message.raw_text:
+            await message.delete()
+
+
+    async def _load_module(self, url):
+        loader_m = self.lookup("loader")
+        await loader_m.download_and_install(url, None)
+
+        if getattr(loader_m, "fully_loaded", False):
+            loader_m.update_modules_in_db()
+
+    async def _inline_download(self, call: InlineCall, url, module_id: int):
+        await self._load_module(url)
+        await self.client.send_message(self.BOT, f"#download:{module_id}")
+
+        api = LimokaAPI()
+        info = await api.get_module_by_id(module_id)
+        markup = [
+            {
+                "text": "❌ Close",
+                "action": "close"
+            }
+        ]
+        await call.edit(
+            f"✔️ Module {info['name']} installed successfully\n\n<code>.help {info['name']}</code>",
+            reply_markup=markup
+        )

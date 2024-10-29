@@ -109,7 +109,8 @@ class Limoka(loader.Module):
         },
         "404": "<emoji document_id=5210952531676504517>❌</emoji> <b>Not found</b>",
         "noargs": "<emoji document_id=5210952531676504517>❌</emoji> <b>No args</b>",
-        "?": "Request too short / not found"
+        "?": "Request too short / not found",
+        "no_info": "<emoji document_id=5210952531676504517>❌</emoji> No information"
     }
 
     strings_ru = {
@@ -133,7 +134,8 @@ class Limoka(loader.Module):
         },
         "404": "<emoji document_id=5210952531676504517>❌</emoji> <b>Не найдено</b>",
         "noargs": "<emoji document_id=5210952531676504517>❌</emoji> <b>Нет аргументов</b>",
-        "?": "Запрос слишком короткий / не найден"
+        "?": "Запрос слишком короткий / не найден",
+        "no_info": "<emoji document_id=5210952531676504517>❌</emoji> Нет информации."
     }
 
     async def client_ready(self, client, db):
@@ -231,6 +233,8 @@ class Limoka(loader.Module):
             dev_username = module_info["developer"]
 
             name = module_info["name"]
+            description = module_info["description"]
+
 
             commands = []
 
@@ -244,7 +248,7 @@ class Limoka(loader.Module):
                                 prefix=self._prefix,
                                 command=html.escape(command),
                                 emoji=self.strings['emojis'][command_count],
-                                description=html.escape(description) if description else "No description"
+                                description=html.escape(description) if description else self.strings["no_info"]
                             )
                         )
                     else:
@@ -257,8 +261,8 @@ class Limoka(loader.Module):
                 link, 
                 text=self.strings["found"].format(
                     query=args,
-                    name=module_info["name"],
-                    description=module_info["description"],
+                    name=name if name else self.strings["no_info"],
+                    description=description if description else self.strings["no_info"],
                     username=dev_username,
                     commands=''.join(commands),
                     prefix=self._prefix,
